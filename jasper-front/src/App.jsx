@@ -1,98 +1,113 @@
 import { useState } from 'react';
 import './App.css';
-import { UploadCloud, FileDown, AlertCircle, Loader2 } from 'lucide-react';
+import { Search, Upload, FileArchive, Loader2, AlertCircle } from 'lucide-react';
 
 function App() {
+  const [fragmento, setFragmento] = useState('');
+  const [arquivo, setArquivo] = useState(null);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState(null);
 
-  // Função para enviar o arquivo
-  const handleFileUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const handleFileChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      setArquivo(e.target.files[0]);
+    }
+  };
+
+  const handleBuscar = async (e) => {
+    e.preventDefault();
+
+    if (!arquivo || !fragmento) {
+      setErro("Por favor, preencha o código e selecione um arquivo ZIP.");
+      return;
+    }
 
     setLoading(true);
     setErro(null);
 
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('fragmento', fragmento);
+    formData.append('arquivo_zip', arquivo);
 
     try {
-      // 1. Envia para o Render (Substitua se necessário)
-      const response = await fetch('https://leitor-jasper-api.onrender.com/inject-nolock/file', {
+      // URL DO RENDER AQUI (ou localhost para teste)
+      const API_URL = 'https://leitor-jasper-api.onrender.com/buscar';
+
+      const response = await fetch(API_URL, {
         method: 'POST',
-        body: formData, // Envia como arquivo, não JSON
+        body: formData, // Não precisa de Content-Type headers com FormData
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail || 'Erro ao processar arquivo');
+        throw new Error(errorData.detail || 'Erro ao processar busca');
       }
 
-      // 2. Transforma a resposta em Download
+      // Converte a resposta em Download
       const blob = await response.blob();
       const downloadUrl = window.URL.createObjectURL(blob);
-
-      // 3. Cria um link invisível e clica nele para baixar
       const link = document.createElement('a');
       link.href = downloadUrl;
-      // Pega o nome do arquivo que veio do servidor ou define um padrão
-      const contentDisposition = response.headers.get('Content-Disposition');
-      let fileName = `nolock_${file.name}`;
-      if (contentDisposition) {
-        const fileNameMatch = contentDisposition.match(/filename="?(.+)"?/);
-        if (fileNameMatch && fileNameMatch.length === 2) fileName = fileNameMatch[1];
-      }
-
-      link.setAttribute('download', fileName);
+      link.setAttribute('download', `resultado_${fragmento}.zip`);
       document.body.appendChild(link);
       link.click();
       link.remove();
 
     } catch (error) {
-      console.error(error);
       setErro(error.message);
     } finally {
       setLoading(false);
-      // Limpa o input para permitir enviar o mesmo arquivo de novo se quiser
-      e.target.value = null;
     }
   };
 
   return (
     <div className="container">
-      <h1><UploadCloud style={{marginBottom: -5}} /> Injetor de NOLOCK</h1>
-      <p style={{textAlign: 'center', color: '#6b7280', marginBottom: '2rem'}}>
-        Envie seu arquivo <strong>.jrxml</strong>. O sistema adicionará <code>WITH (NOLOCK)</code> automaticamente e iniciará o download.
-      </p>
+      <h1><Search style={{marginBottom: -5}} /> Buscador Jasper Web</h1>
+      <p className="subtitle">Envie um ZIP com seus relatórios e encontre os arquivos pelo código.</p>
 
-      <div className="upload-area">
-        <label htmlFor="file-upload" className="custom-file-upload">
+      <form onSubmit={handleBuscar}>
+
+        <div className="form-group">
+          <label>Código/Fragmento para buscar</label>
+          <input
+            type="text"
+            placeholder="Ex: FPG_SIT_FUNCIONARIO..."
+            value={fragmento}
+            onChange={(e) => setFragmento(e.target.value)}
+            required
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Arquivo ZIP (Contendo os .jrxml e .jasper)</label>
+          <div className="file-input-wrapper">
+            <input
+              type="file"
+              accept=".zip"
+              id="zip-upload"
+              onChange={handleFileChange}
+              style={{display: 'none'}}
+            />
+            <label htmlFor="zip-upload" className="file-label">
+              <Upload size={20} />
+              {arquivo ? arquivo.name : "Clique para selecionar o ZIP"}
+            </label>
+          </div>
+        </div>
+
+        <button type="submit" disabled={loading} className={loading ? 'loading-btn' : ''}>
           {loading ? (
-            <div style={{display: 'flex', gap: '10px', alignItems: 'center'}}>
-              <Loader2 className="spin" /> Processando...
-            </div>
+            <><Loader2 className="spin" size={20}/> Processando...</>
           ) : (
-            <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px'}}>
-              <UploadCloud size={48} color="#2563eb" />
-              <span>Clique para selecionar o .jrxml</span>
-            </div>
+            'Buscar e Baixar ZIP'
           )}
-        </label>
-        <input
-          id="file-upload"
-          type="file"
-          accept=".jrxml"
-          onChange={handleFileUpload}
-          disabled={loading}
-          style={{display: 'none'}}
-        />
-      </div>
+        </button>
+      </form>
 
       {erro && (
         <div className="error-box">
-          <div style={{display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 'bold'}}>
-            <AlertCircle size={20} /> Erro
+          <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
+            <AlertCircle size={20} /> <strong>Erro:</strong>
           </div>
           <p>{erro}</p>
         </div>
