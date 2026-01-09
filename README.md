@@ -18,7 +18,7 @@
 1. **Busca Inteligente ("Estratégia de Par Casado"):**
 
 * O sistema varre arquivos `.jrxml` (XML legível) procurando pelo termo desejado.
-* Ao encontrar, identifica o arquivo `.jasper` (Binário) correspondente na mesma pasta.
+* Ao encontrar, identifica o arquivo `.jrxml` (Binário) correspondente na mesma pasta.
 
 
 
