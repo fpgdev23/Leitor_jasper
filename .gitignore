@@ -1,0 +1,10 @@
+# Ignorar pasta de relatórios gerados (Causa do erro de nome longo)
+found_reports/
+
+# Ignorar pastas virtuais do Python
+.venv/
+venv/
+__pycache__/
+
+# Ignorar arquivos do PyCharm
+.idea/
