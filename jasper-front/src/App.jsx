@@ -1,86 +1,94 @@
 import { useState } from 'react';
 import './App.css';
-import { Search, FolderCheck, AlertCircle, FileCode } from 'lucide-react';
-import  footer from './componets/footer';
+import { UploadCloud, FileDown, AlertCircle, Loader2 } from 'lucide-react';
 
 function App() {
-
-  const [fragmento, setFragmento] = useState('');
-  const [origem, setOrigem] = useState('');
   const [loading, setLoading] = useState(false);
-  const [resultado, setResultado] = useState(null);
   const [erro, setErro] = useState(null);
 
-  const handleBuscar = async (e) => {
-    e.preventDefault(); // Não recarrega a página
+  // Função para enviar o arquivo
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
     setLoading(true);
     setErro(null);
-    setResultado(null);
+
+    const formData = new FormData();
+    formData.append('file', file);
 
     try {
-
-      const response = await fetch('https://leitor-jasper-api.onrender.com/buscar', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      codigofragmento: fragmento,
-      caminhoorigem: origem,
-      caminhodestino: destino
-    })
-});
-
-      const data = await response.json();
+      // 1. Envia para o Render (Substitua se necessário)
+      const response = await fetch('https://leitor-jasper-api.onrender.com/inject-nolock/file', {
+        method: 'POST',
+        body: formData, // Envia como arquivo, não JSON
+      });
 
       if (!response.ok) {
-
-        throw new Error(data.detail || 'Erro desconhecido na API');
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Erro ao processar arquivo');
       }
 
-      setResultado(data);
+      // 2. Transforma a resposta em Download
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+
+      // 3. Cria um link invisível e clica nele para baixar
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      // Pega o nome do arquivo que veio do servidor ou define um padrão
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let fileName = `nolock_${file.name}`;
+      if (contentDisposition) {
+        const fileNameMatch = contentDisposition.match(/filename="?(.+)"?/);
+        if (fileNameMatch && fileNameMatch.length === 2) fileName = fileNameMatch[1];
+      }
+
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
 
     } catch (error) {
+      console.error(error);
       setErro(error.message);
     } finally {
       setLoading(false);
+      // Limpa o input para permitir enviar o mesmo arquivo de novo se quiser
+      e.target.value = null;
     }
   };
 
   return (
     <div className="container">
-      <h1><Search style={{marginBottom: -5}} /> Buscador Jasper</h1>
+      <h1><UploadCloud style={{marginBottom: -5}} /> Injetor de NOLOCK</h1>
+      <p style={{textAlign: 'center', color: '#6b7280', marginBottom: '2rem'}}>
+        Envie seu arquivo <strong>.jrxml</strong>. O sistema adicionará <code>WITH (NOLOCK)</code> automaticamente e iniciará o download.
+      </p>
 
-      <form onSubmit={handleBuscar}>
-        <div className="form-group">
-          <label>Código  para buscar</label>
-          <input
-            type="text"
-            placeholder="Ex: 2a5985c3-5dce..."
-            value={fragmento}
-            onChange={(e) => setFragmento(e.target.value)}
-            required
-          />
-        </div>
+      <div className="upload-area">
+        <label htmlFor="file-upload" className="custom-file-upload">
+          {loading ? (
+            <div style={{display: 'flex', gap: '10px', alignItems: 'center'}}>
+              <Loader2 className="spin" /> Processando...
+            </div>
+          ) : (
+            <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px'}}>
+              <UploadCloud size={48} color="#2563eb" />
+              <span>Clique para selecionar o .jrxml</span>
+            </div>
+          )}
+        </label>
+        <input
+          id="file-upload"
+          type="file"
+          accept=".jrxml"
+          onChange={handleFileUpload}
+          disabled={loading}
+          style={{display: 'none'}}
+        />
+      </div>
 
-        <div className="form-group">
-          <label>Pasta de Origem (Onde estão os arquivos)</label>
-          <input
-            type="text"
-            placeholder="C:\Users\Documentos\Inputs"
-            value={origem}
-            onChange={(e) => setOrigem(e.target.value)}
-            required
-          />
-          <small style={{color: '#6b7280', fontSize: '0.8rem'}}>
-            Pode colar o caminho direto do Windows.
-          </small>
-        </div>
-
-        <button type="submit" disabled={loading}>
-          {loading ? 'Procurando...' : 'Buscar Arquivos'}
-        </button>
-      </form>
-
-      {/* Exibição de Erros */}
       {erro && (
         <div className="error-box">
           <div style={{display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 'bold'}}>
@@ -89,39 +97,8 @@ function App() {
           <p>{erro}</p>
         </div>
       )}
-
-      {/* Exibição de Resultados */}
-      {resultado && (
-        <div className="result-box">
-          <h3 style={{marginTop: 0, color: '#166534', display: 'flex', alignItems: 'center', gap: '10px'}}>
-            <FolderCheck /> Sucesso!
-          </h3>
-
-          <p><strong>Pasta criada:</strong> {resultado.pasta_criada}</p>
-          <p><strong>Arquivos copiados:</strong> <span className="badge">{resultado.quantidade_copiada}</span></p>
-
-          {resultado.arquivos_jasper_copiados.length > 0 && (
-            <div style={{marginTop: '1rem'}}>
-              <h4>Arquivos encontrados:</h4>
-              <ul>
-                {resultado.arquivos_jasper_copiados.map((arq, index) => (
-                  <li key={index}>
-                    <FileCode size={16} color="#2563eb"/> {arq}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {resultado.quantidade_copiada === 0 && (
-            <p style={{color: '#b45309'}}>Nenhum arquivo encontrado com esse código.</p>
-          )}
-        </div>
-      )}
     </div>
   );
 }
-<footer>
 
-</footer>
 export default App;
